@@ -17,7 +17,15 @@ namespace GoodsManagement
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Goods(true));
+            try
+            {
+                Application.Run(new Goods());
+            }
+            catch(Exception ex)
+            {
+                DialogResult dialogResult = MessageBox.Show(ex.Message + "\nЗверніться до адміністратора для вирішення проблеми."
+                   , "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

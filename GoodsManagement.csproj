@@ -66,40 +66,10 @@
     <Compile Include="Goods.Designer.cs">
       <DependentUpon>Goods.cs</DependentUpon>
     </Compile>
-    <Compile Include="Cars.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Cars.Designer.cs">
-      <DependentUpon>Cars.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Drivers.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Drivers.Designer.cs">
-      <DependentUpon>Drivers.cs</DependentUpon>
-    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Providers.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Providers.Designer.cs">
-      <DependentUpon>Providers.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Routes.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Routes.Designer.cs">
-      <DependentUpon>Routes.cs</DependentUpon>
-    </Compile>
     <EmbeddedResource Include="Goods.resx">
       <DependentUpon>Goods.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Cars.resx">
-      <DependentUpon>Cars.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Drivers.resx">
-      <DependentUpon>Drivers.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -111,12 +81,6 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <EmbeddedResource Include="Providers.resx">
-      <DependentUpon>Providers.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Routes.resx">
-      <DependentUpon>Routes.cs</DependentUpon>
-    </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -141,6 +105,48 @@
       <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-закрыть-окно-26.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-свернуть-окно-26.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-развернуть-окно-26.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-восстановить-окно-26.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-минус-2-40.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-минус-32.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-плюс-2-32.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-ок-26.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-отмена-26.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-очистить-форматирование-32.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-добавить-свойство-32.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-редактировать-свойство-32.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-удалить-свойство-32.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\icons8-обновить-32.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

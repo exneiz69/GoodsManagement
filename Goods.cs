@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
-using System.Data.OleDb;
+using System.Data.SqlClient;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -14,625 +14,902 @@ namespace GoodsManagement
 {
     public partial class Goods : Form
     {
-        private string connectString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=Database1.mdb;";
+        private string source = 
+            @"Data Source=DESKTOP-M22O3UA\SQLEXPRESS;Initial Catalog=GoodsDB;Integrated Security=True;
+                Connect Timeout=30;Encrypt=False;TrustServerCertificate=False;ApplicationIntent=ReadWrite;MultiSubnetFailover=False;";
 
-        private OleDbConnection myConnection;
-        
-        private Cars _cars;
-        private Drivers _drivers;
-        private Routes _routes;
-        private Providers _providers;
+        private DataTable DataSetMain;
+        private DataTable DataSetKind;
+        private DataTable DataSetProduct;
 
-        public Cars Cars { get { return _cars; } }
-        public Drivers Drivers { get { return _drivers; } }
-        public Routes Routes { get { return _routes; } }
-        public Providers Providers { get { return _providers; } }
-
-        public DataGridView DataGridView { get { return dataGridViewGoods; } }
-
-        private bool _isFirst; // if this form is open first
-
-        public Goods(bool isFirst)
+        public Goods()
         {
-            InitializeComponent();
-            createTempDataGridView();
-            //createTempListBox();
-            myConnection = new OleDbConnection(connectString);
-            _isFirst = isFirst;
-
-            if (isFirst)
+            try
             {
-                this.StartPosition = FormStartPosition.CenterScreen;
-                myConnection.Open();
-                LoadData();
+                InitializeComponent();
 
-                _cars = new Cars(false);
-                _drivers = new Drivers(false);
-                _routes = new Routes(false);
-                _providers = new Providers(false);
-
-                _cars.Synch(this);
-                _drivers.Synch(this);
-                _routes.Synch(this);
-                _providers.Synch(this);
+                this.Controls.Add(this.extraDataGridView);
+                this.SetStyle(ControlStyles.ResizeRedraw, true);
+                this.MaximumSize = SystemInformation.PrimaryMonitorMaximizedWindowSize;
+                this.DataSetMain = new DataTable();
+                this.DataSetKind = new DataTable();
+                this.DataSetProduct = new DataTable();
+            } 
+            catch
+            {
+                this.Close();
             }
         }
 
-        public void Synch(Form form) // assigning pointers to all forms
+        private const Int32
+            HTLEFT = 10,
+            HTRIGHT = 11,
+            HTTOP = 12,
+            HTTOPLEFT = 13,
+            HTTOPRIGHT = 14,
+            HTBOTTOM = 15,
+            HTBOTTOMLEFT = 16,
+            HTBOTTOMRIGHT = 17;
+
+        const Int32 _shift = 10;
+
+        private new Rectangle Top { get { return new Rectangle(0, 0, this.ClientSize.Width, _shift); } }
+        private new Rectangle Left { get { return new Rectangle(0, 0, _shift, this.ClientSize.Height); } }
+        private new Rectangle Bottom { get { return new Rectangle(0, this.ClientSize.Height - _shift, this.ClientSize.Width, _shift); } }
+        private new Rectangle Right { get { return new Rectangle(this.ClientSize.Width - _shift, 0, _shift, this.ClientSize.Height); } }
+
+        private Rectangle TopLeft { get { return new Rectangle(0, 0, _shift, _shift); } }
+        private Rectangle TopRight { get { return new Rectangle(this.ClientSize.Width - _shift, 0, _shift, _shift); } }
+        private Rectangle BottomLeft { get { return new Rectangle(0, this.ClientSize.Height - _shift, _shift, _shift); } }
+        private Rectangle BottomRight { get { return new Rectangle(this.ClientSize.Width - _shift, this.ClientSize.Height - _shift, _shift, _shift); } }
+
+        protected override void WndProc(ref Message message)
         {
-            if (form.GetType() == typeof(Cars))
+            base.WndProc(ref message);
+
+            if (message.Msg == 0x84) // WM_NCHITTEST
             {
-                _cars = (Cars)form;
-                _drivers = _cars.Drivers;
-                _routes = _cars.Routes;
-                _providers = _cars.Providers;
+                var cursor = this.PointToClient(Cursor.Position);
+
+                if (TopLeft.Contains(cursor)) message.Result = (IntPtr)HTTOPLEFT;
+                else if (TopRight.Contains(cursor)) message.Result = (IntPtr)HTTOPRIGHT;
+                else if (BottomLeft.Contains(cursor)) message.Result = (IntPtr)HTBOTTOMLEFT;
+                else if (BottomRight.Contains(cursor)) message.Result = (IntPtr)HTBOTTOMRIGHT;
+
+                else if (Top.Contains(cursor)) message.Result = (IntPtr)HTTOP;
+                else if (Left.Contains(cursor)) message.Result = (IntPtr)HTLEFT;
+                else if (Right.Contains(cursor)) message.Result = (IntPtr)HTRIGHT;
+                else if (Bottom.Contains(cursor)) message.Result = (IntPtr)HTBOTTOM;
             }
-            else if (form.GetType() == typeof(Drivers))
-            {
-                _drivers = (Drivers)form;
-                _cars = _drivers.Cars;
-                _routes = _drivers.Routes;
-                _providers = _drivers.Providers;
-            }
-            else if (form.GetType() == typeof(Routes))
-            {
-                _routes = (Routes)form;
-                _cars = _routes.Cars;
-                _drivers = _routes.Drivers;
-                _providers = _routes.Providers;
-            }
-            else
-            {
-                _providers = (Providers)form;
-                _cars = _providers.Cars;
-                _drivers = _providers.Drivers;
-                _routes = _providers.Routes;
-            }
-        } 
+        }
 
         private void Goods_FormClosing(object sender, FormClosingEventArgs e)
         {
-            myConnection.Close();
+         
         }
 
-        private void Goods_VisibleChanged(object sender, EventArgs e)
+        private void buttonAddAccept_Click(object sender, EventArgs e) // add button click
         {
-            if (_isFirst) _isFirst = false;
-            else
+            using (SqlConnection connection = new SqlConnection(source))
             {
-                if (this.Visible == true)
+                try
                 {
-                    myConnection.Open();
-                    LoadData();
-                }
-                else myConnection.Close();
-            }
-        }
+                    connection.Open();
+                    String query = "SELECT ID FROM Provider WHERE Name = '" + textBoxProvider.Text + "'";
+                    SqlCommand command = new SqlCommand(query, connection);
+                    Int32 ProviderID = (Int32)command.ExecuteScalar();
 
-        private void addButton_Click(object sender, EventArgs e) // add button click
-        {
-            String query = "SELECT * FROM Goods WHERE c_code = '" + codTextBox.Text + "'";
-            OleDbCommand command = new OleDbCommand(query, myConnection);
-            if (command.ExecuteScalar() == null)
-            {
-                query = "INSERT INTO Goods VALUES ('" + codTextBox.Text + "', '" + providerTextBox.Text + "', '" + routeTextBox.Text + "', '"
-                    + carTextBox.Text + "', '" + typeTextBox.Text + "', '" + nameTextBox.Text + "', " + amountTextBox.Text + ", '" + dateTimePicker1.Value.ToString() + "')";
-                command = new OleDbCommand(query, myConnection);
-                command.ExecuteNonQuery();
-                LoadData();
-                foreach(DataGridViewRow row in dataGridViewGoods.Rows)
-                { 
-                    if(row.Cells[0].Value.ToString() == codTextBox.Text)
-                    {
-                        dataGridViewGoods.CurrentCell = row.Cells[0];
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                MessageBox.Show("В БД вже є перевезення з таким кодом", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                codTextBox.Focus();
-            }
-        }
+                    query = "SELECT ID FROM Product WHERE Name = '" + textBoxProduct.Text + "'";
+                    command = new SqlCommand(query, connection);
+                    Int32 ProductID = (Int32)command.ExecuteScalar();
 
-        private void deleteButton_Click(object sender, EventArgs e) // delete button click
-        {
-            String query = "DELETE * FROM Goods WHERE c_code = '" + codTextBox.Value.ToString() + "'";
-            OleDbCommand command = new OleDbCommand(query, myConnection);
-            if (command.ExecuteNonQuery() != 0)
-            {
-                codTextBox.Value = 0;
-                providerTextBox.Clear();
-                routeTextBox.Clear();
-                carTextBox.Clear();
-                typeTextBox.Clear();
-                nameTextBox.Clear();
-                amountTextBox.Value = 0;
-                LoadData();
-                dataGridViewGoods.Focus();
-            }
-            else
-            {
-                MessageBox.Show("В БД відсутній такий запис!", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                codTextBox.Focus();
-            }
-        }
-
-        private void updateButton_Click(object sender, EventArgs e) // update button click
-        {
-            string query = "UPDATE Goods SET c_prov = '" + providerTextBox.Text + "', c_rout = '" + routeTextBox.Text + "', c_car = '"
-                    + carTextBox.Text + "', c_kind = '" + typeTextBox.Text + "', c_name = '" + nameTextBox.Text + "', c_amount = " 
-                    + amountTextBox.Text + ", c_date = '" + dateTimePicker1.Value.ToString() + "' WHERE c_code = '" + codTextBox.Text + "'";
-            OleDbCommand command = new OleDbCommand(query, myConnection);
-            if (command.ExecuteNonQuery() != 0)
-            {
-                LoadData();
-                foreach (DataGridViewRow row in dataGridViewGoods.Rows)
-                {
-                    if (row.Cells[0].Value.ToString() == codTextBox.Text)
-                    {
-                        dataGridViewGoods.CurrentCell = row.Cells[0];
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                DialogResult dialogResult = MessageBox.Show("В БД відсутній такий запис!\nДобавити цей запис в таблицю Перевезення?",
-                    "Помилка", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (dialogResult == DialogResult.Yes)
-                {
-                    query = "INSERT INTO Goods VALUES ('" + codTextBox.Text + "', '" + providerTextBox.Text + "', '" + routeTextBox.Text + "', '"
-                    + carTextBox.Text + "', '" + typeTextBox.Text + "', '" + nameTextBox.Text + "', " + amountTextBox.Text + ", '" + dateTimePicker1.Value.ToString() + "')";
-                    command = new OleDbCommand(query, myConnection);
+                    query = "INSERT INTO Goods(ProviderID, ProductID, Amount) VALUES(" + ProviderID.ToString() + ", " +
+                        ProductID.ToString() + ", " + textBoxAmount.Value.ToString() + ")";
+                    command = new SqlCommand(query, connection);
                     command.ExecuteNonQuery();
                     LoadData();
-                    foreach (DataGridViewRow row in dataGridViewGoods.Rows)
+                    MessageBox.Show("Запис успішно доданий", "Успіх", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (SqlException ex)
+                {
+                    StringBuilder errorMessages = new StringBuilder();
+                    for (int i = 0; i < ex.Errors.Count; i++)
                     {
-                        if (row.Cells[0].Value.ToString() == codTextBox.Text)
+                        errorMessages.Append("Index #" + i + "\n" +
+                            "Message: " + ex.Errors[i].Message + "\n" +
+                            "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                            "Source: " + ex.Errors[i].Source + "\n" +
+                            "Procedure: " + ex.Errors[i].Procedure);
+                        if (i + 1 != ex.Errors.Count) errorMessages.Append("\n\n");
+                    }
+                    MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message + "\nПомилка при підключенні до бази данних.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+        }
+
+        private void buttonDeleteAccept_Click(object sender, EventArgs e) // delete button click
+        {
+            if (textBoxId.Text == "0")
+            {
+                MessageBox.Show("Невірно вказаний запис", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            using (SqlConnection connection = new SqlConnection(source))
+            {
+                try
+                {
+                    connection.Open();
+                    String query = "DELETE FROM Goods WHERE ID = " + textBoxId.Text;
+                    SqlCommand command = new SqlCommand(query, connection);
+                    Int32 amountExecuteNonQuery = command.ExecuteNonQuery();
+                    if (dataGridViewGoods.RowCount > 2)
+                    {
+                        foreach (DataGridViewRow row in dataGridViewGoods.Rows)
                         {
-                            dataGridViewGoods.CurrentCell = row.Cells[0];
-                            break;
+                            if ((Int32)row.Cells[0].Value == Int32.Parse(textBoxId.Text))
+                            {
+                                LoadData(true, row.Index - 1);
+                                break;
+                            }
                         }
+                    }
+                    else LoadData();
+                    if (amountExecuteNonQuery != 0) MessageBox.Show("Запис успішно видалений", "Успіх", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    else MessageBox.Show("Запис був відсутій в базі данних", "Попередження", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                catch (SqlException ex)
+                {
+                    StringBuilder errorMessages = new StringBuilder();
+                    for (int i = 0; i < ex.Errors.Count; i++)
+                    {
+                        errorMessages.Append("Index #" + i + "\n" +
+                            "Message: " + ex.Errors[i].Message + "\n" +
+                            "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                            "Source: " + ex.Errors[i].Source + "\n" +
+                            "Procedure: " + ex.Errors[i].Procedure);
+                        if (i + 1 != ex.Errors.Count) errorMessages.Append("\n\n");
+                    }
+                    MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message + "\nПомилка при підключенні до бази данних.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+        }
+
+        private void buttonEditAccept_Click(object sender, EventArgs e) // edit button click
+        {
+            using (SqlConnection connection = new SqlConnection(source))
+            {
+                try
+                {
+                    connection.Open();
+                    String query = "SELECT ID FROM Provider WHERE Name = '" + textBoxProvider.Text + "'";
+                    SqlCommand command = new SqlCommand(query, connection);
+                    Int32 ProviderID = (Int32)command.ExecuteScalar();
+
+                    query = "SELECT ID FROM Product WHERE Name = '" + textBoxProduct.Text + "'";
+                    command = new SqlCommand(query, connection);
+                    Int32 ProductID = (Int32)command.ExecuteScalar();
+
+                    query = "UPDATE Goods SET ProviderID = " + ProviderID.ToString() + ", ProductID = " + ProductID.ToString() + 
+                        ", Amount = " + textBoxAmount.Value.ToString() + ", Date = '" + 
+                        dateTimePicker.Value.ToString("yyyy-MM-dd hh:mm:ss").ToString() + "'  WHERE ID = " + textBoxId.Text;
+                    command = new SqlCommand(query, connection);
+                    Int32 amountExecuteNonQuery = command.ExecuteNonQuery();
+
+                    if (dataGridViewGoods.RowCount > 1)
+                    {
+                        foreach (DataGridViewRow row in dataGridViewGoods.Rows)
+                        {
+                            if ((Int32)row.Cells[0].Value == Int32.Parse(textBoxId.Text))
+                            {
+                                LoadData(true, row.Index);
+                                break;
+                            }
+                        }
+                    }
+                    else LoadData();
+                    if (amountExecuteNonQuery != 0) MessageBox.Show("Оновлення запису успішне", "Успіх", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    else MessageBox.Show("Запис був відсутій в базі данних", "Попередження", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                catch (SqlException ex)
+                {
+                    StringBuilder errorMessages = new StringBuilder();
+                    for (int i = 0; i < ex.Errors.Count; i++)
+                    {
+                        errorMessages.Append("Index #" + i + "\n" +
+                            "Message: " + ex.Errors[i].Message + "\n" +
+                            "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                            "Source: " + ex.Errors[i].Source + "\n" +
+                            "Procedure: " + ex.Errors[i].Procedure);
+                        if (i + 1 != ex.Errors.Count) errorMessages.Append("\n\n");
+                    }
+                    MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message + "\nПомилка при підключенні до бази данних.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+        }
+
+        private void buttonClear_Click(object sender, EventArgs e) // clear button click
+        {
+            textBoxId.Clear();
+            textBoxProvider.Clear();
+            textBoxKind.Clear();
+            textBoxProduct.Clear();
+            textBoxAmount.Value = 0;
+            dateTimePicker.Value = DateTime.Now;
+        }
+
+        private void buttonRefresh_Click(object sender, EventArgs e) // refresh button click
+        {
+            //if (fLastToolStripMenuItem != null)
+            //{
+            //    readData(dataGridViewGoods, fLastQuery, true);
+            //}
+            LoadData();
+        }
+
+        private void LoadData(Boolean makeSpecialRowSelected = false, Int32 rowIndex = 0) // loading records from the database
+        {
+            String query = "SELECT Goods.ID 'Номер', Provider.Name 'Постачальник', Kind.Name 'Тип', Product.Name 'Назва', " +
+                "Amount 'Кількість', Date 'Дата' " +
+                "FROM Goods " +
+                "JOIN Provider ON Goods.ProviderID = Provider.ID " +
+                "JOIN Product ON Goods.ProductID = Product.ID " +
+                "JOIN Kind ON Product.KindID = Kind.ID";
+            readData(DataSetMain, query);
+
+            BindingSource bindingSource = new BindingSource();
+            bindingSource.DataSource = DataSetMain;
+            dataGridViewGoods.DataSource = bindingSource;
+
+            try
+            {
+                dataGridViewGoods.Columns["Дата"].DefaultCellStyle.Format = "yyyy-MM-dd hh:mm:ss";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\nПомилка при встановленні формату дати", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            if (dataGridViewGoods.RowCount != 0)
+            {
+                if (!makeSpecialRowSelected)
+                {
+                    dataGridViewGoods.CurrentCell = dataGridViewGoods.Rows[dataGridViewGoods.RowCount - 1].Cells[0];
+                    dataGridViewGoods.CurrentCell.Selected = true;
+                }
+                else
+                {
+                    if (rowIndex < dataGridViewGoods.RowCount && rowIndex >= 0)
+                    {
+                        dataGridViewGoods.CurrentCell = dataGridViewGoods.Rows[rowIndex].Cells[0];
+                        dataGridViewGoods.CurrentCell.Selected = true;
                     }
                 }
             }
         }
 
-        private void clearButton_Click(object sender, EventArgs e) // clear button click
-        {
-            codTextBox.Value = 0;
-            providerTextBox.Clear();
-            routeTextBox.Clear();
-            carTextBox.Clear();
-            typeTextBox.Clear();
-            nameTextBox.Clear();
-            amountTextBox.Value = 0;
-            dateTimePicker1.Value = DateTime.Now;
-        }
+        public enum RefreshTableName { Provider, Kind, Product }
 
-        private void filterButton_Click(object sender, EventArgs e) // filter button click
+        public void RefreshAutoComplete(RefreshTableName refreshTableName)
         {
-            checkedListBox1.Location = new Point(filterButton.Location.X + ((MouseEventArgs)e).X - 5, filterButton.Location.Y + ((MouseEventArgs)e).Y - 5);
-            checkedListBox1.BringToFront();
-            checkedListBox1.Show();
-            checkedListBox1.Focus();
-        }
-
-        private void CarsToolStripMenuItem_Click(object sender, EventArgs e) // switching to Cars form
-        {
-            this.Hide();
-            _cars.Location = this.Location;
-            _cars.Show();
-        }
-
-        private void DriversToolStripMenuItem_Click(object sender, EventArgs e) // switching to Drivers form
-        {
-            this.Hide();
-            _drivers.Location = this.Location;
-            _drivers.Show();
-        }
-
-        private void RoutesToolStripMenuItem_Click(object sender, EventArgs e) // switching to Routes form
-        {
-            this.Hide();
-            _routes.Location = this.Location;
-            _routes.Show();
-        }
-
-        private void ProvidersToolStripMenuItem_Click(object sender, EventArgs e) // switching to Providers form
-        {
-            this.Hide();
-            _providers.Location = this.Location;
-            _providers.Show();
-        }
-
-        private void LoadData() // loading records from the database
-        {
-            String query = "SELECT * FROM Goods";
-            dataGridViewGoods.Rows.Clear();
-            OleDbCommand command = new OleDbCommand(query, myConnection);
-            OleDbDataReader reader = command.ExecuteReader();
-            while (reader.Read())
+            AutoCompleteStringCollection stringCollection = new AutoCompleteStringCollection();
+            String query = "";
+            if (refreshTableName == RefreshTableName.Kind) query = "SELECT Name FROM Kind";
+            else if (refreshTableName == RefreshTableName.Provider) query = "SELECT Name FROM Provider";
+            else if (refreshTableName == RefreshTableName.Product) query = "SELECT Product.Name FROM Product " +
+                    "JOIN Kind ON Product.KindID = Kind.ID WHERE Kind.Name = '" + textBoxKind.Text + "'";
+            SqlDataReader reader;
+            using (SqlConnection connection = new SqlConnection(source))
             {
-                Int32 n = dataGridViewGoods.Rows.Add();
-                for (Int32 i = 0; i < reader.VisibleFieldCount; i++)
+                try
                 {
-                    dataGridViewGoods.Rows[n].Cells[i].Value = reader[i].ToString();
+                    connection.Open();
+                    SqlCommand command = new SqlCommand(query, connection);
+                    reader = command.ExecuteReader();
+                    String kind;
+                    while (reader.Read())
+                    {
+                        kind = reader.GetString(0);
+                        stringCollection.Add(kind);
+                    }
+                }
+                catch (SqlException ex)
+                {
+                    StringBuilder errorMessages = new StringBuilder();
+                    for (int i = 0; i < ex.Errors.Count; i++)
+                    {
+                        errorMessages.Append("Index #" + i + "\n" +
+                            "Message: " + ex.Errors[i].Message + "\n" +
+                            "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                            "Source: " + ex.Errors[i].Source + "\n" +
+                            "Procedure: " + ex.Errors[i].Procedure + "\n\n");
+                    }
+                    MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message + "\nПомилка при зчитуванні з бази данних.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    connection.Close();
                 }
             }
-            reader.Close();
-        }
-
-        private void TextBoxTextChanged(object sender, EventArgs e) // disabling buttons when some textBox is empty
-        {
-            if (codTextBox.Value > 0 && providerTextBox.TextLength > 0 && routeTextBox.TextLength > 0 && carTextBox.TextLength > 0
-                && typeTextBox.TextLength > 0 && nameTextBox.TextLength > 0 && amountTextBox.Value > 0)
-            { addButton.Enabled = true; deleteButton.Enabled = true; updateButton.Enabled = true; }
-            else { addButton.Enabled = false; deleteButton.Enabled = false; updateButton.Enabled = false; }
+            if (refreshTableName == RefreshTableName.Kind) textBoxKind.AutoCompleteCustomSource = stringCollection;
+            if (refreshTableName == RefreshTableName.Provider) textBoxProvider.AutoCompleteCustomSource = stringCollection;
+            if (refreshTableName == RefreshTableName.Product) textBoxProduct.AutoCompleteCustomSource = stringCollection;
         }
                 
-        private void dataGridViewGoods_CellMouseUp(object sender, DataGridViewCellMouseEventArgs e) // filling in textBoxs by the selected line
+        private void dataGridViewGoods_CurrentCellChanged(object sender, EventArgs e) // filling in textBoxs by the selected line
         {
-            Int32 rowIndex = dataGridViewGoods.SelectedRows[0].Index;
-            DataGridViewRow dataGridViewRow = dataGridViewGoods.Rows[rowIndex];
-
-            codTextBox.Text = dataGridViewRow.Cells[0].Value.ToString();
-            providerTextBox.Text = dataGridViewRow.Cells[1].Value.ToString();
-            routeTextBox.Text = dataGridViewRow.Cells[2].Value.ToString();
-            carTextBox.Text = dataGridViewRow.Cells[3].Value.ToString();
-            typeTextBox.Text = dataGridViewRow.Cells[4].Value.ToString();
-            nameTextBox.Text = dataGridViewRow.Cells[5].Value.ToString();
-            amountTextBox.Text = dataGridViewRow.Cells[6].Value.ToString();
-            dateTimePicker1.Text = dataGridViewRow.Cells[7].Value.ToString();
+            DataGridViewCell dataGridViewCurrentCell = dataGridViewGoods.CurrentCell;
+            if (dataGridViewCurrentCell != null)
+            {
+                Int32 rowIndex = dataGridViewCurrentCell.RowIndex;
+                DataGridViewRow dataGridViewRow = dataGridViewGoods.Rows[rowIndex];
+                if (!(dataGridViewRow.Cells[0].Value is null)) textBoxId.Text = dataGridViewRow.Cells[0].Value.ToString();
+                if (!(dataGridViewRow.Cells[1].Value is null)) textBoxProvider.Text = dataGridViewRow.Cells[1].Value.ToString();
+                if (!(dataGridViewRow.Cells[2].Value is null))
+                {
+                    textBoxKind.Text = dataGridViewRow.Cells[2].Value.ToString();
+                    RefreshAutoComplete(RefreshTableName.Product);
+                }
+                if (!(dataGridViewRow.Cells[3].Value is null)) textBoxProduct.Text = dataGridViewRow.Cells[3].Value.ToString();
+                if (!(dataGridViewRow.Cells[4].Value is null)) textBoxAmount.Text = dataGridViewRow.Cells[4].Value.ToString();
+                if (!(dataGridViewRow.Cells[5].Value is null)) dateTimePicker.Text = dataGridViewRow.Cells[5].Value.ToString();
+            }
         }
 
-        private void codTextBox_KeyDown(object sender, KeyEventArgs e) // filling the textBoxs by code
+        private Boolean isKeyDownEnter = false;
+
+        private void textBoxId_KeyDown(object sender, KeyEventArgs e) // filling the textBoxs by id
         {
             if (e.KeyCode == Keys.Enter)
             {
+                isKeyDownEnter = true;
+                Boolean searchSuccess = false;
                 foreach (DataGridViewRow row in dataGridViewGoods.Rows)
                 {
-                    if (row.Cells[0].Value.ToString() == codTextBox.Text)
+                    if (row.Cells[0].Value.ToString() == textBoxId.Text)
                     {
-                        providerTextBox.Text = row.Cells[1].Value.ToString();
-                        routeTextBox.Text = row.Cells[2].Value.ToString();
-                        carTextBox.Text = row.Cells[3].Value.ToString();
-                        typeTextBox.Text = row.Cells[4].Value.ToString();
-                        nameTextBox.Text = row.Cells[5].Value.ToString();
-                        amountTextBox.Text = row.Cells[6].Value.ToString();
-                        dateTimePicker1.Text = row.Cells[7].Value.ToString();
+                        dataGridViewGoods.CurrentCell = dataGridViewGoods.Rows[row.Index].Cells[0];
+                        dataGridViewGoods.CurrentCell.Selected = true;
+                        searchSuccess = true;
+                        break;
                     }
                 }
+                if (!searchSuccess) textBoxId.Text = "0";
             }
+            else isKeyDownEnter = false;
         }
 
-        private DataGridView tempDataGridView;
+        //private void extraTextBox_MouseClick(object sender, MouseEventArgs e)
+        //{
+            //String query = "";
+            //extraDataGridView.Rows.Clear();
+            //extraDataGridView.Columns.Clear();
+            //TextBox senderTextBox = sender as TextBox;
+            //if (providerTextBox == senderTextBox)
+            //{
+            //    DataGridViewTextBoxColumn9.HeaderText = "Код";
+            //    DataGridViewTextBoxColumn10.HeaderText = "Назва";
+            //    extraDataGridView.Columns.AddRange(new DataGridViewColumn[] {
+            //    DataGridViewTextBoxColumn9, DataGridViewTextBoxColumn10});
 
-        private void createTempDataGridView()
+            //    query = "SELECT * FROM Provider";
+            //}
+            //else return;
+
+            //if (readData(extraDataGridView, query))
+            //{
+            //    extraDataGridView.Show();
+            //    Point locationSenderTextBox = senderTextBox.FindForm().PointToClient(
+            //        senderTextBox.Parent.PointToScreen(senderTextBox.Location)); // global location senderTextBox on form
+            //    locationSenderTextBox.Y += senderTextBox.Height;
+            //    extraDataGridView.Location = new Point(locationSenderTextBox.X - 2, locationSenderTextBox.Y - 2);
+
+            //    DataGridViewElementStates states = DataGridViewElementStates.None;
+            //    var totalHeight = extraDataGridView.Rows.GetRowsHeight(states);
+            //    if (extraDataGridView.Rows.Count > 5) totalHeight = totalHeight / extraDataGridView.Rows.Count * 5;
+            //    var totalWidth = extraDataGridView.Columns.GetColumnsWidth(states);
+            //    extraDataGridView.ClientSize = new Size(totalWidth + 3, totalHeight + 3);
+
+            //    extraDataGridView.BringToFront();
+            //    extraDataGridView.Focus();
+
+            //    if (senderTextBox.TextLength > 0)
+            //    {
+            //        foreach (DataGridViewRow row in extraDataGridView.Rows)
+            //        {
+            //            if (row.Cells[0].Value.ToString() == senderTextBox.Text)
+            //            {
+            //                extraDataGridView.CurrentCell = row.Cells[0];
+            //                extraDataGridView.CurrentCell.Selected = true;
+            //                break;
+            //            }
+            //        }
+            //    }
+            //    else
+            //    {
+            //        extraDataGridView.ClearSelection();
+            //    }
+            //}
+        //}
+
+        private ToolStripMenuItem fLastToolStripMenuItem = null;
+        private String fLastQuery;
+
+        private void filterToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            tempDataGridView = new DataGridView();
-            tempDataGridView.AllowUserToAddRows = false;
-            tempDataGridView.AllowUserToDeleteRows = false;
-            tempDataGridView.AllowUserToResizeColumns = false;
-            tempDataGridView.AllowUserToResizeRows = false;
-            tempDataGridView.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
-            tempDataGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            tempDataGridView.MultiSelect = false;
-            tempDataGridView.Name = "tempDataGridView";
-            tempDataGridView.ReadOnly = true;
-            tempDataGridView.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Sunken;
-            tempDataGridView.RowHeadersVisible = false;
-            tempDataGridView.RowTemplate.Height = 24;
-            tempDataGridView.ScrollBars = ScrollBars.None;
-            tempDataGridView.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            tempDataGridView.TabIndex = 43;
-            tempDataGridView.Visible = false;
-            tempDataGridView.BackgroundColor = System.Drawing.Color.WhiteSmoke;
-
-            tempDataGridView.CellMouseUp += tempDataGridView_CellMouseUp;
-            tempDataGridView.VisibleChanged += new System.EventHandler(tempDataGridView_VisibleChanged);
-            tempDataGridView.Leave += new System.EventHandler(tempDataGridView_Leave);
-            tempDataGridView.MouseLeave += new System.EventHandler(tempDataGridView_Leave);
-            Controls.Add(tempDataGridView);
-            tempDataGridView.BringToFront();
+            //String query;
+            //if (fProviderToolStripMenuItem == (sender as ToolStripMenuItem))
+            //{
+            //    fProviderToolStripMenuItem.Checked = !fProviderToolStripMenuItem.Checked;
+            //    if (fProviderToolStripMenuItem.Checked == false)
+            //    {
+            //        fLastToolStripMenuItem = null;
+            //        LoadData();
+            //        return;
+            //    }
+            //    if (providerTextBox.TextLength > 0)
+            //    {
+            //        if (fLastToolStripMenuItem != null) fLastToolStripMenuItem.Checked = false;
+            //        fLastToolStripMenuItem = fProviderToolStripMenuItem;
+            //        fLastQuery = query = "SELECT * FROM Goods WHERE ProviderID = '" + providerTextBox.Text + "'";
+            //    }
+            //    else
+            //    {
+            //        fProviderToolStripMenuItem.Checked = false;
+            //        return;
+            //    }
+            //}
+            //else if (fTypeToolStripMenuItem == (sender as ToolStripMenuItem))
+            //{
+            //    fTypeToolStripMenuItem.Checked = !fTypeToolStripMenuItem.Checked;
+            //    if (fTypeToolStripMenuItem.Checked == false)
+            //    {
+            //        fLastToolStripMenuItem = null;
+            //        LoadData();
+            //        return;
+            //    }
+            //    if (typeTextBox.TextLength > 0)
+            //    {
+            //        if (fLastToolStripMenuItem != null) fLastToolStripMenuItem.Checked = false;
+            //        fLastToolStripMenuItem = fTypeToolStripMenuItem;
+            //        fLastQuery = query = "SELECT * FROM Goods WHERE c_kind = '" + typeTextBox.Text + "'";
+            //    }
+            //    else
+            //    {
+            //        fTypeToolStripMenuItem.Checked = false;
+            //        return;
+            //    }
+            //}
+            //else return;
+            //dataGridViewGoods.Rows.Clear();
+            //readData(dataGridViewGoods, query, true);
         }
 
-        private void copyDataGridView(DataGridView from, DataGridView to)
+        private void filterButton_Click(object sender, EventArgs e)
         {
-            DataGridViewColumn[] dataGridViewColumns = new DataGridViewColumn[from.ColumnCount];
-            DataGridViewColumn tempDataGridViewColumn;
-            for (Int32 i = 0; i < from.ColumnCount; i++)
+            //filterContextMenuStrip.Show(filterButton, ((MouseEventArgs)e).Location);
+        }
+
+        private void readData(DataTable dataTable, String query)
+        {
+            using (SqlConnection connection = new SqlConnection(source))
             {
-                tempDataGridViewColumn = from.Columns[i].Clone() as DataGridViewColumn;
-                tempDataGridViewColumn.Name = "TempDataGridViewTextBoxColumn" + i.ToString();
-                dataGridViewColumns[i] = tempDataGridViewColumn;
-            }
-            to.Columns.AddRange(dataGridViewColumns);
-        }
-
-        private void providerTextBox_MouseClick(object sender, MouseEventArgs e)
-        {
-            copyDataGridView(_drivers.DataGridView, tempDataGridView);
-            tempDataGridView.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-            tempDataGridView.Columns[1].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-            String query = "SELECT * FROM Providers";
-            OleDbCommand command = new OleDbCommand(query, myConnection);
-            OleDbDataReader reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                Int32 n = tempDataGridView.Rows.Add();
-                for (Int32 i = 0; i < reader.VisibleFieldCount; i++)
+                try
                 {
-                    tempDataGridView.Rows[n].Cells[i].Value = reader[i].ToString();
+                    connection.Open();
+                    SqlCommand command = new SqlCommand(query, connection);
+                    dataTable.Clear();
+                    SqlDataAdapter DBDataAdapter = new SqlDataAdapter();
+                    DBDataAdapter.SelectCommand = command;
+                    DBDataAdapter.Fill(dataTable);
                 }
-            }
-            reader.Close();
-
-            tempDataGridView.Name = "tempDataGridView1";
-            tempDataGridView.Location = new Point(providerTextBox.Location.X + providerTextBox.Size.Width, providerTextBox.Location.Y + providerTextBox.Size.Height);
-            tempDataGridView.Show();
-            tempDataGridView.Columns[0].Width = 0;
-            tempDataGridView.Columns[1].Width = 0;
-            tempDataGridView.Size = new Size(tempDataGridView.Columns[0].Width + tempDataGridView.Columns[1].Width,
-                (tempDataGridView.RowCount + 1) * tempDataGridView.Rows[0].Height);
-            tempDataGridView.Focus();
-        }
-
-        private void routeTextBox_MouseClick(object sender, MouseEventArgs e)
-        {
-            copyDataGridView(_routes.DataGridView, tempDataGridView);
-            tempDataGridView.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-            tempDataGridView.Columns[1].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-            tempDataGridView.Columns[2].AutoSizeMode = DataGridViewAutoSizeColumnMode.ColumnHeader;
-            String query = "SELECT * FROM Routes";
-            OleDbCommand command = new OleDbCommand(query, myConnection);
-            OleDbDataReader reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                Int32 n = tempDataGridView.Rows.Add();
-                for (Int32 i = 0; i < reader.VisibleFieldCount; i++)
+                catch (SqlException ex)
                 {
-                    if (i == reader.VisibleFieldCount - 1)
+                    StringBuilder errorMessages = new StringBuilder();
+                    for (int i = 0; i < ex.Errors.Count; i++)
                     {
-                        tempDataGridView.Rows[n].Cells[i].Value = reader[i].ToString() + " км.";
-                        continue;
+                        errorMessages.Append("Index #" + i + "\n" +
+                            "Message: " + ex.Errors[i].Message + "\n" +
+                            "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                            "Source: " + ex.Errors[i].Source + "\n" +
+                            "Procedure: " + ex.Errors[i].Procedure);
+                        if (i + 1 != ex.Errors.Count) errorMessages.Append("\n\n");
                     }
-                    tempDataGridView.Rows[n].Cells[i].Value = reader[i].ToString();
+                    MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message + "\nПомилка при зчитуванні з бази данних", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    connection.Close();
                 }
             }
-            reader.Close();
-
-            tempDataGridView.Name = "tempDataGridView2";
-            tempDataGridView.Location = new Point(routeTextBox.Location.X + routeTextBox.Size.Width, routeTextBox.Location.Y + routeTextBox.Size.Height);
-            tempDataGridView.Show();
-            tempDataGridView.Columns[0].Width = 0;
-            tempDataGridView.Columns[1].Width = 0;
-            tempDataGridView.Columns[2].Width = 0;
-            tempDataGridView.Size = new Size(tempDataGridView.Columns[0].Width + tempDataGridView.Columns[1].Width 
-                + tempDataGridView.Columns[2].Width, (tempDataGridView.RowCount + 1) * tempDataGridView.Rows[0].Height);
-            tempDataGridView.Focus(); 
         }
 
-        private void carTextBox_MouseClick(object sender, MouseEventArgs e)
+        private void buttonClose_Click(object sender, EventArgs e)
         {
-            copyDataGridView(_cars.DataGridView, tempDataGridView);
-            tempDataGridView.Columns[0].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-            tempDataGridView.Columns[1].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-            String query = "SELECT * FROM Cars";
-            OleDbCommand command = new OleDbCommand(query, myConnection);
-            OleDbDataReader reader = command.ExecuteReader();
-            while (reader.Read())
+            DialogResult dialogResult = MessageBox.Show("Ви дійсно хочете Вийти?", "Вихід", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+            if (dialogResult == DialogResult.OK) Application.ExitThread();
+        }
+
+        private void buttonMinimized_Click(object sender, EventArgs e)
+        {
+            this.WindowState = FormWindowState.Minimized;
+        }
+
+        private void buttonMaximized_Click(object sender, EventArgs e)
+        {
+            if(this.WindowState == FormWindowState.Normal)
             {
-                Int32 n = tempDataGridView.Rows.Add();
-                for (Int32 i = 0; i < reader.VisibleFieldCount; i++)
+                this.WindowState = FormWindowState.Maximized;
+                buttonMaximized.Image = Properties.Resources.Restore_Window_26;
+            }
+            else
+            {
+                this.WindowState = FormWindowState.Normal;
+                buttonMaximized.Image = Properties.Resources.Maximize_Window_26;
+            }
+        }
+
+        private void panelHeader_MouseLeave(object sender, EventArgs e)
+        {
+            mouseDown = false;
+        }
+
+        private void panelHeader_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (this.WindowState == FormWindowState.Normal)
+            {
+                this.WindowState = FormWindowState.Maximized;
+                buttonMaximized.Image = Properties.Resources.Restore_Window_26;
+            }
+            else
+            {
+                this.WindowState = FormWindowState.Normal;
+                buttonMaximized.Image = Properties.Resources.Maximize_Window_26;
+            }
+        }
+
+        private void Goods_SizeChanged(object sender, EventArgs e)
+        {
+            if (this.WindowState == FormWindowState.Maximized) MainPanel.Dock = DockStyle.Fill;
+            else
+            {
+                if (MainPanel.Dock == DockStyle.Fill) MainPanel.Dock = DockStyle.None;
+                MainPanel.Size = new Size(this.Size.Width - 10, this.Size.Height - 10);
+                MainPanel.Location = new Point(5, 5);
+            }
+        }
+
+        private Boolean isActiveButtonAdd = false;
+        private Boolean isCollapsedButtonAdd = true;
+        private Boolean isActiveButtonDelete = false;
+        private Boolean isCollapsedButtonDelete = true; 
+        private Boolean isActiveButtonEdit = false;
+        private Boolean isCollapsedButtonEdit = true;
+        private Boolean isActivePanelTextBoxs = false;
+        private Boolean isCollapsedPanelTextBoxs = true;
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+            if (isActiveButtonAdd)
+            {
+                if (isCollapsedButtonAdd)
                 {
-                    tempDataGridView.Rows[n].Cells[i].Value = reader[i].ToString();
-                }
-            }
-            reader.Close();
-            tempDataGridView.Name = "tempDataGridView3";
-            tempDataGridView.Location = new Point(carTextBox.Location.X + carTextBox.Size.Width, carTextBox.Location.Y + carTextBox.Size.Height);
-            tempDataGridView.Show();
-            tempDataGridView.Columns[0].Width = 0;
-            tempDataGridView.Columns[1].Width = 0;
-            tempDataGridView.Size = new Size(tempDataGridView.Columns[0].Width + tempDataGridView.Columns[1].Width, (tempDataGridView.RowCount + 1) * tempDataGridView.Rows[0].Height);
-            tempDataGridView.Focus();
-        }
-
-        private void tempDataGridView_CellMouseUp(object sender, DataGridViewCellMouseEventArgs e)
-        {
-            if(((DataGridView)sender).Name == "tempDataGridView1")
-            {
-                providerTextBox.Text = tempDataGridView.SelectedRows[0].Cells[0].Value.ToString();
-            }
-            else if (((DataGridView)sender).Name == "tempDataGridView2")
-            {
-                routeTextBox.Text = tempDataGridView.SelectedRows[0].Cells[0].Value.ToString();
-            }
-            else if (((DataGridView)sender).Name == "tempDataGridView3")
-            {
-                carTextBox.Text = tempDataGridView.SelectedRows[0].Cells[0].Value.ToString();
-            }
-        }
-
-        private void tempDataGridView_VisibleChanged(object sender, EventArgs e)
-        {
-            if (tempDataGridView.Visible == false)
-            {
-                tempDataGridView.Rows.Clear();
-                tempDataGridView.Columns.Clear();
-            }
-        }
-
-        private void tempDataGridView_Leave(object sender, EventArgs e)
-        {
-            tempDataGridView.Hide();
-        }
-
-        private void checkListBox1_Leave(object sender, EventArgs e)
-        {
-            checkedListBox1.Hide();
-        }
-
-        private void checkedListBox1_SelectedIndexChanged(object sender, EventArgs e)
-        {   
-            String query = "";
-            if (checkedListBox1.SelectedIndex == 0)
-            {
-                if (checkedListBox1.GetItemCheckState(checkedListBox1.SelectedIndex) == CheckState.Unchecked)
-                {
-                    checkedListBox1.Hide();
-                    LoadData();
-                    return;
-                }
-                if (providerTextBox.TextLength > 0)
-                {
-                    foreach (int index in checkedListBox1.CheckedIndices)
+                    panelButtonAdd.Enabled = true;
+                    buttonAdd.Enabled = false;
+                    panelButtonAdd.Width += 10;
+                    if (!isCollapsedButtonDelete) isActiveButtonDelete = true;
+                    if (!isCollapsedButtonEdit) isActiveButtonEdit = true;
+                    if (panelButtonAdd.Size == panelButtonAdd.MaximumSize)
                     {
-                        if (index != checkedListBox1.SelectedIndex) checkedListBox1.SetItemCheckState(index, CheckState.Unchecked);
+                        if (!isActiveButtonDelete && !isActiveButtonEdit && !isActivePanelTextBoxs) timer1.Stop();
+                        isCollapsedButtonAdd = false;
+                        isActiveButtonAdd = false;
                     }
-                    query = "SELECT * FROM Goods WHERE c_prov = '" + providerTextBox.Text + "'";
                 }
                 else
                 {
-                    checkedListBox1.SetItemCheckState(checkedListBox1.SelectedIndex, CheckState.Unchecked);
-                    checkedListBox1.Hide();
-                    return;
+                    panelButtonAdd.Enabled = false;
+                    buttonAdd.Enabled = true;
+                    panelButtonAdd.Width -= 10;
+                    if (panelButtonAdd.Size == panelButtonAdd.MinimumSize)
+                    {
+                        if(!isActiveButtonDelete && !isActiveButtonEdit && !isActivePanelTextBoxs) timer1.Stop();
+                        isCollapsedButtonAdd = true;
+                        isActiveButtonAdd = false;
+                        panelButtonAdd.Hide();
+                    }
                 }
             }
-            else if (checkedListBox1.SelectedIndex == 1)
+            if (isActiveButtonDelete)
             {
-                if (checkedListBox1.GetItemCheckState(checkedListBox1.SelectedIndex) == CheckState.Unchecked)
+                if (isCollapsedButtonDelete)
                 {
-                    checkedListBox1.Hide();
-                    LoadData();
-                    return;
-                }
-                if (routeTextBox.TextLength > 0)
-                {
-                    foreach (int index in checkedListBox1.CheckedIndices)
+                    panelButtonDelete.Enabled = true;
+                    buttonDelete.Enabled = false;
+                    panelButtonDelete.Width += 10;
+                    if (!isCollapsedButtonAdd) isActiveButtonAdd = true;
+                    if (!isCollapsedButtonEdit) isActiveButtonEdit = true;
+                    if (panelButtonDelete.Size == panelButtonDelete.MaximumSize)
                     {
-                        if (index != checkedListBox1.SelectedIndex) checkedListBox1.SetItemCheckState(index, CheckState.Unchecked);
+                        if (!isActiveButtonAdd && !isActiveButtonEdit && !isActivePanelTextBoxs) timer1.Stop();
+                        isCollapsedButtonDelete = false;
+                        isActiveButtonDelete = false;
                     }
-                    query = "SELECT * FROM Goods WHERE c_rout = '" + routeTextBox.Text + "'";
                 }
                 else
                 {
-                    checkedListBox1.SetItemCheckState(checkedListBox1.SelectedIndex, CheckState.Unchecked);
-                    checkedListBox1.Hide();
-                    return;
-                }
-
-            }
-            else if (checkedListBox1.SelectedIndex == 2)
-            {
-                if (checkedListBox1.GetItemCheckState(checkedListBox1.SelectedIndex) == CheckState.Unchecked)
-                {
-                    checkedListBox1.Hide();
-                    LoadData();
-                    return;
-                }
-                if (carTextBox.TextLength > 0)
-                {
-                    foreach (int index in checkedListBox1.CheckedIndices)
+                    panelButtonDelete.Enabled = false;
+                    buttonDelete.Enabled = true;
+                    panelButtonDelete.Width -= 10;
+                    if (panelButtonDelete.Size == panelButtonDelete.MinimumSize)
                     {
-                        if (index != checkedListBox1.SelectedIndex) checkedListBox1.SetItemCheckState(index, CheckState.Unchecked);
+                        if (!isActiveButtonAdd && !isActiveButtonEdit && !isActivePanelTextBoxs) timer1.Stop();
+                        isCollapsedButtonDelete = true;
+                        isActiveButtonDelete = false;
+                        panelButtonDelete.Hide();
                     }
-                    query = "SELECT * FROM Goods WHERE c_car = '" + carTextBox.Text + "'";
+                }
+            }
+            if (isActiveButtonEdit)
+            {
+                if (isCollapsedButtonEdit)
+                {
+                    panelButtonEdit.Enabled = true;
+                    buttonEdit.Enabled = false;
+                    panelButtonEdit.Width += 10;
+                    if (!isCollapsedButtonAdd) isActiveButtonAdd = true;
+                    if (!isCollapsedButtonDelete) isActiveButtonDelete = true;
+                    if (panelButtonEdit.Size == panelButtonEdit.MaximumSize)
+                    {
+                        if (!isActiveButtonAdd && !isActiveButtonDelete && !isActivePanelTextBoxs) timer1.Stop();
+                        isCollapsedButtonEdit = false;
+                        isActiveButtonEdit = false;
+                    }
                 }
                 else
                 {
-                    checkedListBox1.SetItemCheckState(checkedListBox1.SelectedIndex, CheckState.Unchecked);
-                    checkedListBox1.Hide();
-                    return;
+                    panelButtonEdit.Enabled = false;
+                    buttonEdit.Enabled = true;
+                    panelButtonEdit.Width -= 10;
+                    if (panelButtonEdit.Size == panelButtonEdit.MinimumSize)
+                    {
+                        if(!isActiveButtonAdd && !isActiveButtonDelete && !isActivePanelTextBoxs) timer1.Stop();
+                        isCollapsedButtonEdit = true;
+                        isActiveButtonEdit = false;
+                        panelButtonEdit.Hide();
+                    }
                 }
             }
-            else if (checkedListBox1.SelectedIndex == 3)
+            if (isActivePanelTextBoxs)
             {
-                if (checkedListBox1.GetItemCheckState(checkedListBox1.SelectedIndex) == CheckState.Unchecked)
+                if (isCollapsedPanelTextBoxs)
                 {
-                    checkedListBox1.Hide();
-                    LoadData();
-                    return;
-                }
-                if (typeTextBox.TextLength > 0)
-                {
-                    foreach (int index in checkedListBox1.CheckedIndices)
+                    panelTextBoxs.Enabled = true;
+                    panelTextBoxs.Height += 20;
+                    if (panelTextBoxs.Size.Height == panelTextBoxs.MaximumSize.Height)
                     {
-                        if (index != checkedListBox1.SelectedIndex) checkedListBox1.SetItemCheckState(index, CheckState.Unchecked);
+                        if (!isActiveButtonAdd && !isActiveButtonDelete && !isActiveButtonEdit) timer1.Stop();
+                        isCollapsedPanelTextBoxs = false;
+                        isActivePanelTextBoxs = false;
                     }
-                    query = "SELECT * FROM Goods WHERE c_kind = '" + typeTextBox.Text + "'";
                 }
                 else
                 {
-                    checkedListBox1.SetItemCheckState(checkedListBox1.SelectedIndex, CheckState.Unchecked);
-                    checkedListBox1.Hide();
-                    return;
+                    panelTextBoxs.Enabled = false;
+                    panelTextBoxs.Height -= 20;
+                    if (panelTextBoxs.Size.Height == panelTextBoxs.MinimumSize.Height)
+                    {
+                        if (!isActiveButtonAdd && !isActiveButtonDelete && !isActiveButtonEdit) timer1.Stop();
+                        isCollapsedPanelTextBoxs = true;
+                        isActivePanelTextBoxs = false;
+                        panelTextBoxs.Hide();
+                    }   
                 }
             }
-            checkedListBox1.Hide();
-            dataGridViewGoods.Rows.Clear();
-            OleDbCommand command = new OleDbCommand(query, myConnection);
-            OleDbDataReader reader = command.ExecuteReader();
-            while (reader.Read())
+        }
+
+        private void buttonAdd_Click(object sender, EventArgs e)
+        {
+            textBoxId.Enabled = false;
+            textBoxProvider.Enabled = true;
+            textBoxKind.Enabled = true;
+            if (textBoxKind.AutoCompleteCustomSource.Contains(textBoxKind.Text)) textBoxProduct.Enabled = true;
+            else textBoxProduct.Enabled = false;
+            textBoxAmount.Enabled = true;
+            dateTimePicker.Enabled = false;
+
+            isActiveButtonAdd = true;
+            if (isCollapsedButtonDelete && isCollapsedButtonEdit)
+                if (!isActiveButtonDelete && !isActiveButtonEdit) isActivePanelTextBoxs = true;
+            panelButtonAdd.Show();
+            panelTextBoxs.Show();
+            timer1.Start();
+        }
+
+        private void buttonDelete_Click(object sender, EventArgs e)
+        {
+            textBoxId.Enabled = true;
+            textBoxProvider.Enabled = false;
+            textBoxKind.Enabled = false;
+            textBoxProduct.Enabled = false;
+            textBoxAmount.Enabled = false;
+            dateTimePicker.Enabled = false;
+
+            isActiveButtonDelete = true;
+            if (isCollapsedButtonAdd && isCollapsedButtonEdit)
+                if (!isActiveButtonAdd && !isActiveButtonEdit) isActivePanelTextBoxs = true;
+            panelButtonDelete.Show();
+            panelTextBoxs.Show();
+            timer1.Start();
+        }
+
+        private void buttonEdit_Click(object sender, EventArgs e)
+        {
+            textBoxId.Enabled = true;
+            textBoxProvider.Enabled = true;
+            textBoxKind.Enabled = true;
+            if (textBoxKind.AutoCompleteCustomSource.Contains(textBoxKind.Text)) textBoxProduct.Enabled = true;
+            else textBoxProduct.Enabled = false;
+            textBoxAmount.Enabled = true;
+            dateTimePicker.Enabled = true;
+
+            isActiveButtonEdit = true;
+            if (isCollapsedButtonAdd && isCollapsedButtonDelete)
+                if (!isActiveButtonAdd && !isActiveButtonDelete) isActivePanelTextBoxs = true;
+            panelButtonEdit.Show();
+            panelTextBoxs.Show();
+            timer1.Start();
+        }
+
+        private void buttonAddCancel_Click(object sender, EventArgs e)  
+        {
+            isActiveButtonAdd = true;
+            if (!isActiveButtonDelete && !isActiveButtonEdit) isActivePanelTextBoxs = true;
+            timer1.Start();
+        }
+
+        private void buttonDeleteCancel_Click(object sender, EventArgs e)
+        {
+            isActiveButtonDelete = true;
+            if (!isActiveButtonAdd && !isActiveButtonEdit) isActivePanelTextBoxs = true;
+            timer1.Start();
+        }
+
+        private void Goods_Load(object sender, EventArgs e)
+        {
+            RefreshAutoComplete(RefreshTableName.Kind);
+            RefreshAutoComplete(RefreshTableName.Provider);
+            LoadData();
+        }
+
+        private void textBoxKind_Leave(object sender, EventArgs e)
+        {
+            if (!textBoxKind.AutoCompleteCustomSource.Contains(textBoxKind.Text)) textBoxKind.Clear();
+            else RefreshAutoComplete(RefreshTableName.Product);
+        }
+
+        private void textBoxKind_TextChanged(object sender, EventArgs e)
+        {
+            if (textBoxKind.AutoCompleteCustomSource.Contains(textBoxKind.Text))
             {
-                Int32 n = dataGridViewGoods.Rows.Add();
-                for (Int32 i = 0; i < reader.VisibleFieldCount; i++)
+                if(panelButtonDelete.Enabled == false) textBoxProduct.Enabled = true;
+            }
+            else textBoxProduct.Enabled = false;
+            textBoxProduct.Clear();
+        }
+
+        private void textBoxProvider_Leave(object sender, EventArgs e)
+        {
+            if (!textBoxProvider.AutoCompleteCustomSource.Contains(textBoxProvider.Text))
+                textBoxProvider.Clear();
+        }
+
+        private void textBoxProduct_Leave(object sender, EventArgs e)
+        {
+            if (!textBoxProduct.AutoCompleteCustomSource.Contains(textBoxProduct.Text))
+                textBoxProduct.Clear();
+        }
+
+        private void textBoxId_Leave(object sender, EventArgs e)
+        {
+            Boolean searchSuccess = false;
+            foreach (DataGridViewRow row in dataGridViewGoods.Rows)
+            {
+                if (row.Cells[0].Value.ToString() == textBoxId.Text) searchSuccess = true;
+            }
+            if (!searchSuccess) textBoxId.Text = "0";
+        }
+
+        private void textBoxId_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (!Char.IsDigit(e.KeyChar) && e.KeyChar != 8 && e.KeyChar != 46) e.Handled = true;
+            if (!isKeyDownEnter)
+            {
+                textBoxProvider.Clear();
+                textBoxKind.Clear();
+                textBoxProduct.Clear();
+                textBoxAmount.Value = 0;
+                dateTimePicker.Value = DateTime.Now;
+            }
+        }
+
+        private void buttonEditCancel_Click(object sender, EventArgs e)
+        {
+            isActiveButtonEdit = true;
+            if (!isActiveButtonAdd && !isActiveButtonDelete) isActivePanelTextBoxs = true;
+            timer1.Start();
+        }
+
+        private Boolean mouseDown;
+        private Point lastLocation;
+
+        private void panelHeader_MouseDown(object sender, MouseEventArgs e)
+        {
+            mouseDown = true;
+            lastLocation = e.Location;
+        }
+
+        private void panelHeader_MouseUp(object sender, MouseEventArgs e)
+        {
+            mouseDown = false;
+        }
+
+        private Boolean windowStateRefresh = false;
+
+        private void panelHeader_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (mouseDown)
+            {
+                if (this.WindowState == FormWindowState.Maximized)
                 {
-                    dataGridViewGoods.Rows[n].Cells[i].Value = reader[i].ToString();
+                    this.WindowState = FormWindowState.Normal;
+                    buttonMaximized.Image = Properties.Resources.Maximize_Window_26;
+                    Double rationX = (Double)lastLocation.X / (Double)Screen.PrimaryScreen.Bounds.Width;
+                    this.Location = new Point(lastLocation.X - (Int32)(this.Width * rationX), lastLocation.Y);
+                    windowStateRefresh = true;
                 }
-            }
-            reader.Close();
-        }
-
-        /*private ListBox tempListBox;
-
-        private void createTempListBox()
-        {
-            tempListBox = new ListBox();
-            tempListBox.Items.AddRange(new object[] { "Створити таблицю" });
-            tempListBox.Visible = false;
-            tempListBox.SelectedIndexChanged += new System.EventHandler(this.tempListBox_SelectedIndexChanged);
-            tempListBox.Leave += new System.EventHandler(this.tempListBox_Leave);
-            tempListBox.MouseLeave += new System.EventHandler(this.tempListBox_Leave);
-            Controls.Add(tempListBox);     
-        }
-
-        private void GoodsToolStripMenuItem_MouseUp(object sender, MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Right)
-            {
-                tempListBox.Location = new Point(100, 100);
-                tempListBox.BringToFront();
-                tempListBox.Focus();
-                tempListBox.Show();
+                else
+                {
+                    if (windowStateRefresh)
+                    {
+                        windowStateRefresh = false;
+                        lastLocation = e.Location;
+                    }
+                    this.Location = new Point((this.Location.X - lastLocation.X) + e.X, (this.Location.Y - lastLocation.Y) + e.Y);
+                }
+                this.Update();
             }
         }
-
-        private Form tempForm;
-
-        private void createTempForm()
-        {
-            tempForm = new Form();
-            Button yesButton = new Button();
-            Button noButton = new Button();
-            Controls.Add(tempForm);
-            tempForm.BringToFront();
-            
-        }
-
-        private void tempListBox_Leave(object sender, EventArgs e)
-        {
-            tempListBox.Hide();
-        }
-
-        private void tempListBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            this.Enabled = false;
-            tempListBox.Hide();
-        }
-        */
     }
 }
