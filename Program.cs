@@ -19,11 +19,11 @@ namespace GoodsManagement
             Application.SetCompatibleTextRenderingDefault(false);
             try
             {
-                Application.Run(new Goods());
+                Application.Run(new Invoice());
             }
             catch(Exception ex)
             {
-                DialogResult dialogResult = MessageBox.Show(ex.Message + "\nЗверніться до адміністратора для вирішення проблеми."
+                MessageBox.Show(ex.Message + "\nЗверніться до адміністратора для вирішення проблеми."
                    , "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
