@@ -8,22 +8,25 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Dapper;
 
 namespace GoodsManagement
 {
     public partial class Goods : Form
     {
-        public Goods(String InvoiceID)
+        public Goods(String InvoiceID, String Date)
         {
             InitializeComponent();
             this.SetStyle(ControlStyles.ResizeRedraw, true);
             this.MaximumSize = SystemInformation.PrimaryMonitorMaximizedWindowSize;
-            this.DataSetGoods = new DataTable();
+            this.DataTableGoods = new DataTable();
             this.InvoiceID = InvoiceID;
+            this.Date = Date;
         }
 
-        private DataTable DataSetGoods;
+        private DataTable DataTableGoods;
         private String InvoiceID;
+        private String Date;
 
         private const Int32
        HTLEFT = 10,
@@ -44,15 +47,16 @@ namespace GoodsManagement
 
         private void LoadData(Boolean makeSpecialRowSelected = false, Int32 rowIndex = 0) // loading records from the database
         {
-            String query = @"SELECT Goods.ID, Kinds.Name 'Тип', Products.Name 'Назва', Goods.Amount 'Кількість' FROM Goods " +
+            String query = "SELECT Goods.ID, Kinds.Name 'Тип', Products.Name 'Назва', Goods.Amount 'Кількість', Goods.Price 'Ціна' " +
+                "FROM Goods " +
                 "JOIN Products ON Goods.ProductID = Products.ID " +
                 "JOIN Kinds ON Products.KindID = Kinds.ID " +
-                "WHERE Goods.InvoiceID = @InvoiceID";
-            readData(DataSetGoods, query);
-
+                $"WHERE Goods.InvoiceID = { InvoiceID }"; 
+            readData(DataTableGoods, query);
             BindingSource bindingSource = new BindingSource();
-            bindingSource.DataSource = DataSetGoods;
+            bindingSource.DataSource = DataTableGoods;
             dataGridView.DataSource = bindingSource;
+
             RefreshAutoComplete(RefreshTableName.Search);
 
             try
@@ -60,7 +64,8 @@ namespace GoodsManagement
                 dataGridView.Columns[0].Visible = false;
                 dataGridView.Columns[1].FillWeight = 14;
                 dataGridView.Columns[2].FillWeight = 25;
-                dataGridView.Columns[3].FillWeight = 6;
+                dataGridView.Columns[3].FillWeight = 8;
+                dataGridView.Columns[4].FillWeight = 10;
 
                 if (dataGridView.RowCount > 0)
                 {
@@ -125,8 +130,6 @@ namespace GoodsManagement
                     connection.Open();
                     using (var command = new SqlCommand(query, connection))
                     {
-                        command.Parameters.AddWithValue("@InvoiceID", InvoiceID);
-
                         dataTable.Clear();
                         SqlDataAdapter DBDataAdapter = new SqlDataAdapter();
                         DBDataAdapter.SelectCommand = command;
@@ -250,7 +253,7 @@ namespace GoodsManagement
                 {
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridView.DataSource = DataSetGoods;
+                        dataGridView.DataSource = DataTableGoods;
                         return;
                     }
 
@@ -261,7 +264,7 @@ namespace GoodsManagement
                     }
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridView.DataSource = DataSetGoods;
+                        dataGridView.DataSource = DataTableGoods;
                         return;
                     }
 
@@ -272,11 +275,11 @@ namespace GoodsManagement
                     }
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridView.DataSource = DataSetGoods;
+                        dataGridView.DataSource = DataTableGoods;
                         return;
                     }
 
-                    DataView dataView = new DataView(DataSetGoods);
+                    DataView dataView = new DataView(DataTableGoods);
                     String pattern = textBoxSearch.Text;
                     Int32 index = pattern.IndexOf('*', 0);
                     StringBuilder pattertB = new StringBuilder();
@@ -315,7 +318,7 @@ namespace GoodsManagement
         private void textBoxSearch_Leave(object sender, EventArgs e)
         {
             textBoxSearch.Text = "Пошук...";
-            dataGridView.DataSource = DataSetGoods;
+            dataGridView.DataSource = DataTableGoods;
             textBoxSearch.ForeColor = Color.FromArgb(207, 214, 230);
         }
 
@@ -345,7 +348,7 @@ namespace GoodsManagement
 
         private void buttonAdd_Click(object sender, EventArgs e)
         {
-            if (textBoxKind.Text.Length == 0 || textBoxProduct.Text.Length == 0 || textBoxAmount.Value == 0)
+            if (textBoxKind.Text.Length == 0 || textBoxProduct.Text.Length == 0 || textBoxAmount.Value == 0 || textBoxPrice.Value == 0)
             {
                 MessageBox.Show("Заповність всі необхідні поля", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -361,14 +364,18 @@ namespace GoodsManagement
                             ProductID = (Int32)command.ExecuteScalar();
                         }
 
-                        using (var command = new SqlCommand(@"INSERT INTO Goods(InvoiceID, ProductID, Amount) " +
-                            "VALUES(@ID, @PRODUCT, @AMOUNT)", connection))
+                        using (var command = new SqlCommand(@"INSERT INTO Goods(InvoiceID, ProductID, Amount, Price) " +
+                            "VALUES(@ID, @PRODUCT, @AMOUNT, @PRICE)", connection))
                         {
                             command.Parameters.AddWithValue("@ID", InvoiceID);
                             command.Parameters.AddWithValue("@PRODUCT", ProductID);
                             SqlParameter parameter = new SqlParameter("@AMOUNT", SqlDbType.Decimal);
                             parameter.Scale = 3;
                             parameter.Value = Decimal.Multiply(textBoxAmount.Value, 1.000M);
+                            command.Parameters.Add(parameter);
+                            parameter = new SqlParameter("@PRICE", SqlDbType.Decimal);
+                            parameter.Scale = 2;
+                            parameter.Value = Decimal.Multiply(textBoxPrice.Value, 1.00M);
                             command.Parameters.Add(parameter);
                             command.ExecuteNonQuery();
                         }
@@ -467,25 +474,88 @@ namespace GoodsManagement
                 if (!(dataGridViewRow.Cells[1].Value is null)) textBoxKind.Text = dataGridViewRow.Cells[1].Value.ToString();
                 if (!(dataGridViewRow.Cells[2].Value is null)) textBoxProduct.Text = dataGridViewRow.Cells[2].Value.ToString();
                 if (!(dataGridViewRow.Cells[3].Value is null)) textBoxAmount.Text = dataGridViewRow.Cells[3].Value.ToString();
+                if (!(dataGridViewRow.Cells[4].Value is null)) textBoxPrice.Text = dataGridViewRow.Cells[4].Value.ToString();
             }
         }
 
         private void Goods_Load(object sender, EventArgs e)
         {
-            labelHeader.Text = "Накладна №" + InvoiceID.ToString();
+            labelHeader.Text = "Накладна №" + InvoiceID + " від " + Date;
             RefreshAutoComplete(RefreshTableName.Kind);
             LoadData();
         }
 
         private void dataGridView_CellClick(object sender, DataGridViewCellEventArgs e)
         {
-            dataGridView.CurrentCell = dataGridView.Rows[e.RowIndex].Cells[1];
-            dataGridView.CurrentCell.Selected = true;
+            if (e.RowIndex != -1)
+            {
+                dataGridView.CurrentCell = dataGridView.Rows[e.RowIndex].Cells[1];
+                dataGridView.CurrentCell.Selected = true;
 
-            DataGridViewRow dataGridViewRow = dataGridView.Rows[e.RowIndex];
-            if (!(dataGridViewRow.Cells[1].Value is null)) textBoxKind.Text = dataGridViewRow.Cells[1].Value.ToString();
-            if (!(dataGridViewRow.Cells[2].Value is null)) textBoxProduct.Text = dataGridViewRow.Cells[2].Value.ToString();
-            if (!(dataGridViewRow.Cells[3].Value is null)) textBoxAmount.Text = dataGridViewRow.Cells[3].Value.ToString();
+                DataGridViewRow dataGridViewRow = dataGridView.Rows[e.RowIndex];
+                if (!(dataGridViewRow.Cells[1].Value is null)) textBoxKind.Text = dataGridViewRow.Cells[1].Value.ToString();
+                if (!(dataGridViewRow.Cells[2].Value is null)) textBoxProduct.Text = dataGridViewRow.Cells[2].Value.ToString();
+                if (!(dataGridViewRow.Cells[3].Value is null)) textBoxAmount.Text = dataGridViewRow.Cells[3].Value.ToString();
+                if (!(dataGridViewRow.Cells[4].Value is null)) textBoxPrice.Text = dataGridViewRow.Cells[4].Value.ToString();
+            }
+        }
+
+        private void buttonPrint_Click(object sender, EventArgs e)
+        {
+            String query = "SELECT Kinds.Name 'KindName', Products.Name 'ProductName', Goods.Amount, Goods.Price, " +
+                "cast(round(Goods.Amount * Goods.Price, 2) as decimal(8,2)) 'Sum' FROM Goods " +
+                "JOIN Products ON Goods.ProductID = Products.ID " +
+                "JOIN Kinds ON Products.KindID = Kinds.ID " +
+                $"WHERE Goods.InvoiceID = { InvoiceID }";
+            DataTable dataTable = new DataTable();
+            readData(dataTable, query);
+
+            using (SqlConnection connection = new SqlConnection(Helper.source))
+            {
+                try
+                {
+                    connection.Open();
+                    List<String> provider = new List<String>(3);
+                    using (var command = new SqlCommand("SELECT Providers.Name, Providers.EDRPOU, Providers.IPN FROM Invoices " +
+                        "JOIN Providers ON Providers.ID = Invoices.ProviderID " +
+                        $"WHERE Invoices.ID = { InvoiceID }", connection))
+                    {
+                        SqlDataReader reader = command.ExecuteReader();
+                        reader.Read();
+                        provider.Add(reader[0].ToString());
+                        provider.Add(reader[1].ToString());
+                        provider.Add(reader[2].ToString());
+                        reader.Close();
+                    }
+
+                    using (PrintGoods printGoods = new PrintGoods(dataTable, InvoiceID, Date, provider))
+                    {
+                        printGoods.ShowDialog();
+                    }
+                }
+                catch (SqlException ex)
+                {
+                    StringBuilder errorMessages = new StringBuilder();
+                    for (int i = 0; i < ex.Errors.Count; i++)
+                    {
+                        errorMessages.Append("Index #" + i + "\n" +
+                            "Message: " + ex.Errors[i].Message + "\n" +
+                            "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                            "Source: " + ex.Errors[i].Source + "\n" +
+                            "Procedure: " + ex.Errors[i].Procedure);
+                        if (i + 1 != ex.Errors.Count) errorMessages.Append("\n\n");
+                    }
+                    MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message + "\nПомилка при підключенні до бази данних.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
         }
 
         private void Goods_SizeChanged(object sender, EventArgs e)

@@ -15,7 +15,7 @@ namespace GoodsManagement
 {
     public partial class Invoice : Form
     {
-        private DataTable DataSetMain;
+        private DataTable DataTableMain;
 
         public Invoice()
         {
@@ -27,7 +27,7 @@ namespace GoodsManagement
                 this.Controls.Add(this.extraDataGridView);
                 this.SetStyle(ControlStyles.ResizeRedraw, true);
                 this.MaximumSize = SystemInformation.PrimaryMonitorMaximizedWindowSize;
-                this.DataSetMain = new DataTable();
+                this.DataTableMain = new DataTable();
             }
             catch (Exception ex)
             {
@@ -288,10 +288,10 @@ namespace GoodsManagement
         {
             String query = "SELECT Invoices.ID 'Накладна', Providers.Name 'Постачальник', Invoices.Date 'Дата' FROM Invoices " +
                 "JOIN Providers ON ProviderID = Providers.ID";
-            readData(DataSetMain, query);
+            readData(DataTableMain, query);
 
             BindingSource bindingSource = new BindingSource();
-            bindingSource.DataSource = DataSetMain;
+            bindingSource.DataSource = DataTableMain;
             dataGridViewGoods.DataSource = bindingSource;
             RefreshAutoComplete(RefreshTableName.Search);
 
@@ -926,7 +926,7 @@ namespace GoodsManagement
 
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridViewGoods.DataSource = DataSetMain;
+                        LoadData();
                         return;
                     }
 
@@ -937,7 +937,7 @@ namespace GoodsManagement
                     }
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridViewGoods.DataSource = DataSetMain;
+                        LoadData();
                         return;
                     }
 
@@ -948,11 +948,11 @@ namespace GoodsManagement
                     }
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridViewGoods.DataSource = DataSetMain;
+                        LoadData();
                         return;
                     }
 
-                    DataView dataView = new DataView(DataSetMain);
+                    DataView dataView = new DataView(DataTableMain);
                     String pattern = textBoxSearch.Text;
                     StringBuilder pattertB = new StringBuilder();
 
@@ -980,6 +980,58 @@ namespace GoodsManagement
                     dataView.RowFilter = String.Format("Постачальник LIKE '%{0}%'", pattern);
                     dataGridViewGoods.DataSource = dataView;
 
+                    using (SqlConnection connection = new SqlConnection(Helper.source))
+                    {
+                        try
+                        {
+                            connection.Open();
+
+                            using (var command = new SqlCommand(@"SELECT * FROM Goods WHERE InvoiceID = @ID", connection))
+                            {
+                                SqlParameter parameter;
+                                foreach (DataGridViewRow row in dataGridViewGoods.Rows)
+                                {
+                                    parameter = command.Parameters.AddWithValue("@ID", row.Cells[0].Value);
+                                    if (command.ExecuteScalar() is null)
+                                    {
+                                        row.HeaderCell.Style.BackColor = Color.FromArgb(192, 0, 0);
+                                        row.HeaderCell.Style.SelectionBackColor = Color.FromArgb(192, 0, 0);
+                                        row.DefaultCellStyle.SelectionBackColor = Color.FromArgb(192, 0, 0);
+                                    }
+                                    else
+                                    {
+                                        row.HeaderCell.Style.BackColor = Color.WhiteSmoke;
+                                        row.HeaderCell.Style.SelectionBackColor = SystemColors.Highlight;
+                                        row.DefaultCellStyle.SelectionBackColor = SystemColors.Highlight;
+                                    }
+                                    command.Parameters.Remove(parameter);
+                                }
+                            }
+
+                        }
+                        catch (SqlException ex)
+                        {
+                            StringBuilder errorMessages = new StringBuilder();
+                            for (int i = 0; i < ex.Errors.Count; i++)
+                            {
+                                errorMessages.Append("Index #" + i + "\n" +
+                                    "Message: " + ex.Errors[i].Message + "\n" +
+                                    "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                                    "Source: " + ex.Errors[i].Source + "\n" +
+                                    "Procedure: " + ex.Errors[i].Procedure);
+                                if (i + 1 != ex.Errors.Count) errorMessages.Append("\n\n");
+                            }
+                            MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex.Message + "\nПомилка при підключенні до бази данних.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        finally
+                        {
+                            connection.Close();
+                        }
+                    }
                 }
         }
 
@@ -996,7 +1048,7 @@ namespace GoodsManagement
             if (textBoxSearch.TextLength == 0)
             {
                 textBoxSearch.Text = "Пошук...";
-                dataGridViewGoods.DataSource = DataSetMain;
+                dataGridViewGoods.DataSource = DataTableMain;
                 textBoxSearch.ForeColor = Color.FromArgb(207, 214, 230);
             }
         }
@@ -1020,11 +1072,113 @@ namespace GoodsManagement
 
         private void dataGridViewGoods_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
-            DataGridViewRow dataGridViewRow = dataGridViewGoods.Rows[e.RowIndex];
-            using (Goods goods = new Goods(dataGridViewRow.Cells[0].Value.ToString()))
+            if (e.RowIndex != -1)
             {
-                if(goods.ShowDialog() == DialogResult.OK)
+                DataGridViewRow dataGridViewRow = dataGridViewGoods.Rows[e.RowIndex];
+                using (Goods goods = new Goods(dataGridViewRow.Cells[0].Value.ToString(), ((DateTime)dataGridViewRow.Cells[2].Value).ToString("yyyy-MM-dd")))
                 {
+                    if (goods.ShowDialog() == DialogResult.OK)
+                    {
+                        using (SqlConnection connection = new SqlConnection(Helper.source))
+                        {
+                            try
+                            {
+                                connection.Open();
+
+                                using (var command = new SqlCommand(@"SELECT * FROM Goods WHERE InvoiceID = @ID", connection))
+                                {
+                                    SqlParameter parameter;
+                                    foreach (DataGridViewRow row in dataGridViewGoods.Rows)
+                                    {
+                                        parameter = command.Parameters.AddWithValue("@ID", row.Cells[0].Value);
+                                        if (command.ExecuteScalar() is null)
+                                        {
+                                            row.HeaderCell.Style.BackColor = Color.FromArgb(192, 0, 0);
+                                            row.HeaderCell.Style.SelectionBackColor = Color.FromArgb(192, 0, 0);
+                                            row.DefaultCellStyle.SelectionBackColor = Color.FromArgb(192, 0, 0);
+                                        }
+                                        else
+                                        {
+                                            row.HeaderCell.Style.BackColor = Color.WhiteSmoke;
+                                            row.HeaderCell.Style.SelectionBackColor = SystemColors.Highlight;
+                                            row.DefaultCellStyle.SelectionBackColor = SystemColors.Highlight;
+                                        }
+                                        command.Parameters.Remove(parameter);
+                                    }
+                                }
+
+                            }
+                            catch (SqlException ex)
+                            {
+                                StringBuilder errorMessages = new StringBuilder();
+                                for (int i = 0; i < ex.Errors.Count; i++)
+                                {
+                                    errorMessages.Append("Index #" + i + "\n" +
+                                        "Message: " + ex.Errors[i].Message + "\n" +
+                                        "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                                        "Source: " + ex.Errors[i].Source + "\n" +
+                                        "Procedure: " + ex.Errors[i].Procedure);
+                                    if (i + 1 != ex.Errors.Count) errorMessages.Append("\n\n");
+                                }
+                                MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show(ex.Message + "\nПомилка при підключенні до бази данних.", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
+                            finally
+                            {
+                                connection.Close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void dataGridViewGoods_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex != -1)
+            {
+                dataGridViewGoods.CurrentCell = dataGridViewGoods.Rows[e.RowIndex].Cells[1];
+                dataGridViewGoods.CurrentCell.Selected = true;
+
+                DataGridViewRow dataGridViewRow = dataGridViewGoods.Rows[e.RowIndex];
+                if (!(dataGridViewRow.Cells[0].Value is null)) textBoxId.Text = dataGridViewRow.Cells[0].Value.ToString();
+                if (!(dataGridViewRow.Cells[1].Value is null)) textBoxProvider.Text = dataGridViewRow.Cells[1].Value.ToString();
+                if (!(dataGridViewRow.Cells[2].Value is null)) dateTimePicker.Text = dataGridViewRow.Cells[2].Value.ToString();
+            }
+        }
+
+        private void LoadFilterData(String query) // loading records from the database
+        {
+            readData(DataTableMain, query);
+
+            BindingSource bindingSource = new BindingSource();
+            bindingSource.DataSource = DataTableMain;
+            dataGridViewGoods.DataSource = bindingSource;
+            RefreshAutoComplete(RefreshTableName.Search);
+
+            try
+            {
+                dataGridViewGoods.Columns["Дата"].DefaultCellStyle.Format = "yyyy-MM-dd hh:mm:ss";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\nПомилка при встановленні формату дати", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            try
+            {
+                dataGridViewGoods.Columns[0].FillWeight = 7;
+                dataGridViewGoods.Columns[1].FillWeight = 16;
+                dataGridViewGoods.Columns[2].FillWeight = 10;
+
+                if (dataGridViewGoods.RowCount > 0)
+                {
+                    dataGridViewGoods.CurrentCell = dataGridViewGoods.Rows[dataGridViewGoods.RowCount - 1].Cells[0];
+                    dataGridViewGoods.CurrentCell.Selected = true;
+
                     using (SqlConnection connection = new SqlConnection(Helper.source))
                     {
                         try
@@ -1079,17 +1233,36 @@ namespace GoodsManagement
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
-        private void dataGridViewGoods_CellClick(object sender, DataGridViewCellEventArgs e)
-        {
-            dataGridViewGoods.CurrentCell = dataGridViewGoods.Rows[e.RowIndex].Cells[1];
-            dataGridViewGoods.CurrentCell.Selected = true;
+        private Boolean isFilterActive = false;
 
-            DataGridViewRow dataGridViewRow = dataGridViewGoods.Rows[e.RowIndex];
-            if (!(dataGridViewRow.Cells[0].Value is null)) textBoxId.Text = dataGridViewRow.Cells[0].Value.ToString();
-            if (!(dataGridViewRow.Cells[1].Value is null)) textBoxProvider.Text = dataGridViewRow.Cells[1].Value.ToString();
-            if (!(dataGridViewRow.Cells[2].Value is null)) dateTimePicker.Text = dataGridViewRow.Cells[2].Value.ToString();
+        private void buttonFilter_Click(object sender, EventArgs e)
+        {
+            if (isFilterActive)
+            {
+                LoadData();
+                buttonFilter.Image = Properties.Resources.EmptyFilter_32;
+                isFilterActive = false;
+                toolTip1.SetToolTip(buttonFilter, "Фільтр");
+            }
+            else using (Filter filter = new Filter())
+                {
+                    if (filter.ShowDialog() == DialogResult.OK)
+                    {
+                        LoadFilterData("SELECT Invoices.ID 'Накладна', Providers.Name 'Постачальник', Invoices.Date 'Дата' FROM Invoices " +
+                            "JOIN Providers ON ProviderID = Providers.ID " +
+                            $"WHERE CAST(Invoices.Date as date) BETWEEN '{ filter.dateTimeFrom.ToString("yyyyMMdd") }' AND '{ filter.dateTimeTo.ToString("yyyyMMdd") }'");
+                        buttonFilter.Image = Properties.Resources.ClearFilter_32;
+                        isFilterActive = true;
+                        toolTip1.SetToolTip(buttonFilter, $"Фільтр\nвід: { filter.dateTimeFrom.ToString("yyyy-MM-dd") }\n" +
+                            $"до:  { filter.dateTimeTo.ToString("yyyy-MM-dd") }");
+                    }
+                }
         }
 
         private void buttonEditCancel_Click(object sender, EventArgs e)

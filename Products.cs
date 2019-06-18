@@ -14,14 +14,14 @@ namespace GoodsManagement
 {
     public partial class Products : Form
     {
-        private DataTable DataSetProducts;
+        private DataTable DataTableProducts;
 
         public Products()
         {
             InitializeComponent();
             this.SetStyle(ControlStyles.ResizeRedraw, true);
             this.MaximumSize = SystemInformation.PrimaryMonitorMaximizedWindowSize;
-            this.DataSetProducts = new DataTable();
+            this.DataTableProducts = new DataTable();
             LoadData();
         }
 
@@ -44,24 +44,25 @@ namespace GoodsManagement
 
         private void LoadData()
         {
-            String query = "SELECT Kinds.Name 'Тип', Products.Name 'Назва', SUM(Amount) 'Залишок' " +
+            String query = "SELECT Products.ID, Kinds.Name 'Тип', Products.Name 'Назва', SUM(Amount) 'Залишок' " +
                 "FROM Goods " +
                 "FULL JOIN Products ON Goods.ProductID = Products.ID " +
                 "JOIN Kinds ON Products.KindID = Kinds.ID " +
-                "GROUP BY Kinds.Name, Products.Name " +
+                "GROUP BY Products.ID, Kinds.Name, Products.Name " +
                 "ORDER BY Kinds.Name";
-            readData(DataSetProducts, query);
+            readData(DataTableProducts, query);
 
             BindingSource bindingSource = new BindingSource();
-            bindingSource.DataSource = DataSetProducts;
+            bindingSource.DataSource = DataTableProducts;
             dataGridView.DataSource = bindingSource;
 
             try
             {
-                dataGridView.Columns[0].FillWeight = 14;
-                dataGridView.Columns[1].FillWeight = 25;
-                dataGridView.Columns[2].FillWeight = 6;
-                dataGridView.Columns[2].DefaultCellStyle.NullValue = "0,000";
+                dataGridView.Columns[0].Visible = false;
+                dataGridView.Columns[1].FillWeight = 14;
+                dataGridView.Columns[2].FillWeight = 25;
+                dataGridView.Columns[3].FillWeight = 6;
+                dataGridView.Columns[3].DefaultCellStyle.NullValue = "0,000";
             }
             catch (Exception ex)
             {
@@ -125,11 +126,13 @@ namespace GoodsManagement
                 try
                 {
                     connection.Open();
-                    SqlCommand command = new SqlCommand(query, connection);
-                    dataTable.Clear();
-                    SqlDataAdapter DBDataAdapter = new SqlDataAdapter();
-                    DBDataAdapter.SelectCommand = command;
-                    DBDataAdapter.Fill(dataTable);
+                    using (var command = new SqlCommand(query, connection))
+                    {
+                        dataTable.Clear();
+                        SqlDataAdapter DBDataAdapter = new SqlDataAdapter();
+                        DBDataAdapter.SelectCommand = command;
+                        DBDataAdapter.Fill(dataTable);
+                    }
                 }
                 catch (SqlException ex)
                 {
@@ -165,7 +168,7 @@ namespace GoodsManagement
                 {
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridView.DataSource = DataSetProducts;
+                        dataGridView.DataSource = DataTableProducts;
                         return;
                     }
 
@@ -176,7 +179,7 @@ namespace GoodsManagement
                     }
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridView.DataSource = DataSetProducts;
+                        dataGridView.DataSource = DataTableProducts;
                         return;
                     }
 
@@ -187,11 +190,11 @@ namespace GoodsManagement
                     }
                     if (textBoxSearch.Text == String.Empty)
                     {
-                        dataGridView.DataSource = DataSetProducts;
+                        dataGridView.DataSource = DataTableProducts;
                         return;
                     }
 
-                    DataView dataView = new DataView(DataSetProducts);
+                    DataView dataView = new DataView(DataTableProducts);
                     String pattern = textBoxSearch.Text;
                     Int32 index = pattern.IndexOf('*', 0);
                     StringBuilder pattertB = new StringBuilder();
@@ -230,13 +233,69 @@ namespace GoodsManagement
         private void textBoxSearch_Leave(object sender, EventArgs e)
         {
             textBoxSearch.Text = "Пошук...";
-            dataGridView.DataSource = DataSetProducts;
+            dataGridView.DataSource = DataTableProducts;
             textBoxSearch.ForeColor = Color.FromArgb(207, 214, 230);
         }
 
         private void buttonRefresh_Click(object sender, EventArgs e)
         {
             LoadData();
+        }
+
+        private void dataGridView_CurrentCellChanged(object sender, EventArgs e)
+        {
+            DataGridViewCell dataGridViewCurrentCell = dataGridView.CurrentCell;
+            if (dataGridViewCurrentCell != null)
+            {
+                Int32 rowIndex = dataGridViewCurrentCell.RowIndex;
+                DataGridViewRow dataGridViewRow = dataGridView.Rows[rowIndex];
+
+                String query = "SELECT Amount 'Кількість', Date 'Дата' FROM Invoices " +
+                    $"JOIN Goods ON Goods.InvoiceID = Invoices.ID WHERE Goods.ProductID = { dataGridViewRow.Cells[0].Value }";
+                dataGridViewInOut.Rows.Clear();
+                using (SqlConnection connection = new SqlConnection(Helper.source))
+                {
+                    try
+                    {
+                        connection.Open();
+
+                        using (var command = new SqlCommand(query, connection))
+                        {
+                            SqlDataReader reader = command.ExecuteReader();
+                            while (reader.Read())
+                            {
+                                Int32 n = dataGridViewInOut.Rows.Add();
+                                dataGridViewInOut.Rows[n].Cells[0].Value = "+" + reader[0].ToString();
+                                dataGridViewInOut.Rows[n].Cells[1].Value = reader[1].ToString();
+                            }
+
+                            reader.Close();
+                        }
+                    }
+                    catch (SqlException ex)
+                    {
+                        StringBuilder errorMessages = new StringBuilder();
+                        for (int i = 0; i < ex.Errors.Count; i++)
+                        {
+                            errorMessages.Append("Index #" + i + "\n" +
+                                "Message: " + ex.Errors[i].Message + "\n" +
+                                "LineNumber: " + ex.Errors[i].LineNumber + "\n" +
+                                "Source: " + ex.Errors[i].Source + "\n" +
+                                "Procedure: " + ex.Errors[i].Procedure);
+                            if (i + 1 != ex.Errors.Count) errorMessages.Append("\n\n");
+                        }
+                        MessageBox.Show(errorMessages.ToString(), "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message + "\nПомилка при зчитуванні з бази данних", "Помилка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    finally
+                    {
+                        connection.Close();
+                    }
+                }
+            }
         }
 
         private void Products_SizeChanged(object sender, EventArgs e)

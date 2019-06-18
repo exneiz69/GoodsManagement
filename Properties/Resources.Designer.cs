@@ -93,6 +93,16 @@ namespace GoodsManagement.Properties {
         /// <summary>
         ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap ClearFilter_32 {
+            get {
+                object obj = ResourceManager.GetObject("ClearFilter_32", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Close_Window_26 {
             get {
                 object obj = ResourceManager.GetObject("Close_Window_26", resourceCulture);
@@ -116,6 +126,16 @@ namespace GoodsManagement.Properties {
         internal static System.Drawing.Bitmap Edit_32 {
             get {
                 object obj = ResourceManager.GetObject("Edit_32", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap EmptyFilter_32 {
+            get {
+                object obj = ResourceManager.GetObject("EmptyFilter_32", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -163,9 +183,29 @@ namespace GoodsManagement.Properties {
         /// <summary>
         ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap ok_32 {
+            get {
+                object obj = ResourceManager.GetObject("ok_32", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Plus_32 {
             get {
                 object obj = ResourceManager.GetObject("Plus_32", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Print_32 {
+            get {
+                object obj = ResourceManager.GetObject("Print_32", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

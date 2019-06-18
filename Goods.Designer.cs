@@ -29,9 +29,12 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
             this.MainPanel = new System.Windows.Forms.Panel();
+            this.textBoxPrice = new System.Windows.Forms.NumericUpDown();
+            this.label1 = new System.Windows.Forms.Label();
+            this.buttonPrint = new System.Windows.Forms.Button();
             this.buttonRefresh = new System.Windows.Forms.Button();
             this.buttonDelete = new System.Windows.Forms.Button();
             this.buttonAdd = new System.Windows.Forms.Button();
@@ -47,7 +50,9 @@
             this.labelHeader = new System.Windows.Forms.Label();
             this.buttonClose = new System.Windows.Forms.Button();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.printDialog1 = new System.Windows.Forms.PrintDialog();
             this.MainPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.textBoxPrice)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.textBoxAmount)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView)).BeginInit();
             this.panelHeader.SuspendLayout();
@@ -60,6 +65,9 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.MainPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(214)))), ((int)(((byte)(230)))));
             this.MainPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.MainPanel.Controls.Add(this.textBoxPrice);
+            this.MainPanel.Controls.Add(this.label1);
+            this.MainPanel.Controls.Add(this.buttonPrint);
             this.MainPanel.Controls.Add(this.buttonRefresh);
             this.MainPanel.Controls.Add(this.buttonDelete);
             this.MainPanel.Controls.Add(this.buttonAdd);
@@ -74,8 +82,48 @@
             this.MainPanel.Controls.Add(this.panelHeader);
             this.MainPanel.Location = new System.Drawing.Point(5, 5);
             this.MainPanel.Name = "MainPanel";
-            this.MainPanel.Size = new System.Drawing.Size(705, 515);
+            this.MainPanel.Size = new System.Drawing.Size(900, 600);
             this.MainPanel.TabIndex = 56;
+            // 
+            // textBoxPrice
+            // 
+            this.textBoxPrice.DecimalPlaces = 2;
+            this.textBoxPrice.Font = new System.Drawing.Font("Cambria", 10.2F);
+            this.textBoxPrice.Location = new System.Drawing.Point(121, 168);
+            this.textBoxPrice.Maximum = new decimal(new int[] {
+            999999,
+            0,
+            0,
+            0});
+            this.textBoxPrice.Name = "textBoxPrice";
+            this.textBoxPrice.Size = new System.Drawing.Size(80, 27);
+            this.textBoxPrice.TabIndex = 75;
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Font = new System.Drawing.Font("Cambria", 10.2F);
+            this.label1.ForeColor = System.Drawing.SystemColors.ControlText;
+            this.label1.Location = new System.Drawing.Point(117, 145);
+            this.label1.Margin = new System.Windows.Forms.Padding(0);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(43, 20);
+            this.label1.TabIndex = 74;
+            this.label1.Text = "Ціна";
+            // 
+            // buttonPrint
+            // 
+            this.buttonPrint.BackColor = System.Drawing.Color.Transparent;
+            this.buttonPrint.FlatAppearance.BorderSize = 0;
+            this.buttonPrint.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.buttonPrint.Image = global::GoodsManagement.Properties.Resources.Print_32;
+            this.buttonPrint.Location = new System.Drawing.Point(121, 195);
+            this.buttonPrint.Name = "buttonPrint";
+            this.buttonPrint.Size = new System.Drawing.Size(33, 39);
+            this.buttonPrint.TabIndex = 73;
+            this.toolTip1.SetToolTip(this.buttonPrint, "Оновити");
+            this.buttonPrint.UseVisualStyleBackColor = true;
+            this.buttonPrint.Click += new System.EventHandler(this.buttonPrint_Click);
             // 
             // buttonRefresh
             // 
@@ -130,7 +178,7 @@
             0,
             0});
             this.textBoxAmount.Name = "textBoxAmount";
-            this.textBoxAmount.Size = new System.Drawing.Size(68, 27);
+            this.textBoxAmount.Size = new System.Drawing.Size(80, 27);
             this.textBoxAmount.TabIndex = 68;
             // 
             // label7
@@ -200,10 +248,10 @@
             this.textBoxSearch.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.CustomSource;
             this.textBoxSearch.Font = new System.Drawing.Font("Cambria", 10.2F);
             this.textBoxSearch.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(214)))), ((int)(((byte)(230)))));
-            this.textBoxSearch.Location = new System.Drawing.Point(387, 202);
+            this.textBoxSearch.Location = new System.Drawing.Point(492, 202);
             this.textBoxSearch.Margin = new System.Windows.Forms.Padding(3, 12, 1, 3);
             this.textBoxSearch.Name = "textBoxSearch";
-            this.textBoxSearch.Size = new System.Drawing.Size(310, 27);
+            this.textBoxSearch.Size = new System.Drawing.Size(400, 27);
             this.textBoxSearch.TabIndex = 56;
             this.textBoxSearch.Text = "Пошук...";
             this.textBoxSearch.TextChanged += new System.EventHandler(this.textBoxSearch_TextChanged);
@@ -222,24 +270,24 @@
             this.dataGridView.BackgroundColor = System.Drawing.Color.WhiteSmoke;
             this.dataGridView.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.dataGridView.ColumnHeadersBorderStyle = System.Windows.Forms.DataGridViewHeaderBorderStyle.Single;
-            dataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(14)))), ((int)(((byte)(126)))), ((int)(((byte)(152)))));
-            dataGridViewCellStyle3.Font = new System.Drawing.Font("Cambria", 18.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
-            dataGridViewCellStyle3.ForeColor = System.Drawing.SystemColors.WindowText;
-            dataGridViewCellStyle3.SelectionBackColor = System.Drawing.SystemColors.Highlight;
-            dataGridViewCellStyle3.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle3.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
-            this.dataGridView.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle3;
+            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(14)))), ((int)(((byte)(126)))), ((int)(((byte)(152)))));
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("Cambria", 18.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
+            dataGridViewCellStyle1.ForeColor = System.Drawing.SystemColors.WindowText;
+            dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
+            dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.dataGridView.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
             this.dataGridView.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dataGridView.Cursor = System.Windows.Forms.Cursors.Default;
-            dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle4.BackColor = System.Drawing.Color.WhiteSmoke;
-            dataGridViewCellStyle4.Font = new System.Drawing.Font("Cambria", 18.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
-            dataGridViewCellStyle4.ForeColor = System.Drawing.SystemColors.ControlText;
-            dataGridViewCellStyle4.SelectionBackColor = System.Drawing.SystemColors.Highlight;
-            dataGridViewCellStyle4.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
-            dataGridViewCellStyle4.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
-            this.dataGridView.DefaultCellStyle = dataGridViewCellStyle4;
+            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle2.BackColor = System.Drawing.Color.WhiteSmoke;
+            dataGridViewCellStyle2.Font = new System.Drawing.Font("Cambria", 18.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
+            dataGridViewCellStyle2.ForeColor = System.Drawing.SystemColors.ControlText;
+            dataGridViewCellStyle2.SelectionBackColor = System.Drawing.SystemColors.Highlight;
+            dataGridViewCellStyle2.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle2.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
+            this.dataGridView.DefaultCellStyle = dataGridViewCellStyle2;
             this.dataGridView.EnableHeadersVisualStyles = false;
             this.dataGridView.GridColor = System.Drawing.SystemColors.ControlDarkDark;
             this.dataGridView.Location = new System.Drawing.Point(6, 235);
@@ -251,7 +299,7 @@
             this.dataGridView.RowHeadersWidthSizeMode = System.Windows.Forms.DataGridViewRowHeadersWidthSizeMode.DisableResizing;
             this.dataGridView.RowTemplate.Height = 24;
             this.dataGridView.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.dataGridView.Size = new System.Drawing.Size(691, 272);
+            this.dataGridView.Size = new System.Drawing.Size(886, 357);
             this.dataGridView.TabIndex = 55;
             this.dataGridView.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dataGridView_CellClick);
             this.dataGridView.CurrentCellChanged += new System.EventHandler(this.dataGridView_CurrentCellChanged);
@@ -265,7 +313,7 @@
             this.panelHeader.Font = new System.Drawing.Font("Cambria", 18.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
             this.panelHeader.Location = new System.Drawing.Point(0, 0);
             this.panelHeader.Name = "panelHeader";
-            this.panelHeader.Size = new System.Drawing.Size(703, 36);
+            this.panelHeader.Size = new System.Drawing.Size(898, 36);
             this.panelHeader.TabIndex = 54;
             this.panelHeader.MouseDown += new System.Windows.Forms.MouseEventHandler(this.panelHeader_MouseDown);
             this.panelHeader.MouseLeave += new System.EventHandler(this.panelHeader_MouseLeave);
@@ -294,7 +342,7 @@
             this.buttonClose.FlatAppearance.BorderSize = 0;
             this.buttonClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.buttonClose.Image = global::GoodsManagement.Properties.Resources.Close_Window_26;
-            this.buttonClose.Location = new System.Drawing.Point(669, 3);
+            this.buttonClose.Location = new System.Drawing.Point(864, 3);
             this.buttonClose.Name = "buttonClose";
             this.buttonClose.Size = new System.Drawing.Size(31, 27);
             this.buttonClose.TabIndex = 54;
@@ -302,12 +350,16 @@
             this.buttonClose.UseVisualStyleBackColor = false;
             this.buttonClose.Click += new System.EventHandler(this.buttonClose_Click);
             // 
+            // printDialog1
+            // 
+            this.printDialog1.UseEXDialog = true;
+            // 
             // Goods
             // 
             this.AcceptButton = this.buttonClose;
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.Red;
-            this.ClientSize = new System.Drawing.Size(715, 525);
+            this.ClientSize = new System.Drawing.Size(910, 610);
             this.Controls.Add(this.MainPanel);
             this.Font = new System.Drawing.Font("Cambria", 18.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
@@ -320,6 +372,7 @@
             this.SizeChanged += new System.EventHandler(this.Goods_SizeChanged);
             this.MainPanel.ResumeLayout(false);
             this.MainPanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.textBoxPrice)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.textBoxAmount)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView)).EndInit();
             this.panelHeader.ResumeLayout(false);
@@ -346,5 +399,9 @@
         private System.Windows.Forms.Button buttonRefresh;
         private System.Windows.Forms.Label labelHeader;
         private System.Windows.Forms.ToolTip toolTip1;
+        private System.Windows.Forms.Button buttonPrint;
+        private System.Windows.Forms.PrintDialog printDialog1;
+        private System.Windows.Forms.NumericUpDown textBoxPrice;
+        private System.Windows.Forms.Label label1;
     }
 }
